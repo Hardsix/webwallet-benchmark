@@ -1,22 +1,54 @@
 const sdk = require('@webwallet/sdk')
 const bs58check = require('bs58check')
 const request = require('request-promise')
+const _ = require('lodash')
+const bluebird = require('bluebird')
 
 const defaultDate = (new Date(2023)).toISOString()
 
-async function send(source: string, sourceSigner: string, target: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = false) {
+interface Entity {
+  scheme: string
+  public: string
+  secret: string
+  signer: string
+}
+
+const issuer: Entity = {
+  scheme: "ecdsa-ed25519",
+  public: "0423f8b192884eb5d71802fb50f21068fa43c9733893a6d4bb420e2827647cb728178dfe197957c127ee6851250611d9205ed9a5435034f0169580e899e7b32282",
+  secret: "03ead306f42e95861bed33effe37f2bc2720d5f8da3ba286b358d78cfff245af",
+  signer: "wdEHHkz5FLAvb2UfmCSrw1w9Dn87reYuSP"
+}
+
+const SYMBOL = issuer.signer
+
+const rojo: Entity = {
+  scheme: "ecdsa-ed25519",
+  public: "040847a066ec3d86b2766a2fad0331e64c34ce45d1e457c45b6eb5d171bd5143ce6b6873efd10ce0dba3001bea8d85fe2ab02c80dca3b00083b78f503dd0ce0275",
+  secret: "043cae98277b4cb909d2b81559ab907e9ae5321e790678494634bfcdea2b722d",
+  signer: "wbmMFVkmphCeb5QEXdTqfXp52EatuE1Quu"
+}
+
+const amarillo: Entity = {
+  scheme: "ecdsa-ed25519",
+  public: "04147f1c7d498559279b322ff5023b206fb7c138208f8b957810740124fdf4cadd5ae9f8fa1729f286c8922ba096e987e52c72ebfdf4382b3101e133225f3afa54",
+  secret: "9a4811f1b5af9a810d2a89e172c24ff8a4bbb130d841d565c727d725f6d3a7",
+  signer: "wc3Kgynkv96bK6Ukef3TrhP4CvZPkxQ1un"
+}
+
+async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = false) {
   /* Prepare IOU claims */
   let claims = {
     domain: 'localhost',
-    source: source,
-    target: target,
+    source: sourceAddress,
+    target: targetAddress,
     amount,
     symbol,
     expiry: (new Date(2023)).toISOString()
   }
 
   /* Write and sign IOU */
-  let signers = [sourceSigner]
+  let signers = [sourceKeys]
 
   let iou = sdk.iou.write(claims).sign(signers)
 
@@ -30,7 +62,7 @@ async function send(source: string, sourceSigner: string, target: string, amount
   /* Send transaction request */
   // console.log(`${JSON.stringify(iou, null, 2)}`)
   if (logging) {
-    console.log(`Sending ${amount} ${symbol} from ${source} to ${target}`)
+    console.log(`Sending ${amount} ${symbol} from ${sourceAddress} to ${targetAddress}`)
   }
 
   try {
@@ -52,17 +84,17 @@ async function send(source: string, sourceSigner: string, target: string, amount
   }
 }
 
+async function issue(amount: string, targetAddress: string) {
+  await send(issuer.signer, issuer, targetAddress, amount, SYMBOL)
+}
+
 async function main() {
-  /* Generate cryptographic keys and addresses */
-  let source = sdk.keypair.generate()
-  let target = sdk.keypair.generate()
-
-  /* Generate wallet addresses from public keys */
-
-  source.signer = sdk.address.generate({ data: source.public })
-  target.signer = sdk.address.generate({ data: target.public })
-
-  await send(source.signer, source, target.signer, '10', source.signer)
+  issue('1000000', rojo.signer)
+  // const res = await send(rojo.signer, rojo, amarillo.signer, '10', SYMBOL)
+  const responses = await bluebird.map(_.range(100), async r => {
+    const res = await send(rojo.signer, rojo, amarillo.signer, '10', SYMBOL)
+    console.log('ANOTHER ONE!')
+  }, { concurrency: 5 })
 }
 
 main()
