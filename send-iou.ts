@@ -42,7 +42,8 @@ const amarillo: Entity = {
   signer: "wc3Kgynkv96bK6Ukef3TrhP4CvZPkxQ1un"
 }
 
-async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = false) {
+async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = false) 
+: Promise<{ res, miliseconds: number }> {
   /* Prepare IOU claims */
   let claims = {
     domain: 'localhost',
@@ -109,30 +110,28 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
   }
 }
 
-async function issue(amount: string, targetAddress: string) {
+async function issue(amount: string, targetAddress: string): Promise<void> {
   await send(issuer.signer, issuer, targetAddress, amount, SYMBOL)
 }
 
 async function scenario2() {
   // SHORT SIMULATION
-  const TOTAL_CIRCULATION = 10
-  const FRAGMENT_COUNT = 10
-  const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
-
-  const LARGE_AMOUNT = 1
-  const MEDIUM_AMOUNT = 1
-  const SMALL_AMOUNT = 1
-
-  const MIDDLE_TRANSACTION_COUNT = 1
+  // const TOTAL_CIRCULATION = 10
+  // const FRAGMENT_COUNT = 10
+  // const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
+  // const LARGE_AMOUNT = 1
+  // const MEDIUM_AMOUNT = 1
+  // const SMALL_AMOUNT = 1
+  // const MIDDLE_TRANSACTION_COUNT = 1
 
   // LONG SIMULATION
-  // const TOTAL_CIRCULATION = 1000000
-  // const FRAGMENT_COUNT = 100000
-  // const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
-
-  // const LARGE_AMOUNT = FRAGMENT_AMOUNT * 1000
-  // const MEDIUM_AMOUNT = FRAGMENT_AMOUNT * 100
-  // const SMALL_AMOUNT = FRAGMENT_AMOUNT * 10
+  const TOTAL_CIRCULATION = 100000
+  const FRAGMENT_COUNT = 10000
+  const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
+  const LARGE_AMOUNT = FRAGMENT_AMOUNT * 1000
+  const MEDIUM_AMOUNT = FRAGMENT_AMOUNT * 100
+  const SMALL_AMOUNT = FRAGMENT_AMOUNT * 10
+  const MIDDLE_TRANSACTION_COUNT = 1
 
   console.log('Benchmark config:\n' + JSON.stringify({
     TOTAL_CIRCULATION,
@@ -252,6 +251,60 @@ PARALLELIZATION_AMOUNT of different pair of addresses (different source, differe
 - 1 by 1
 
 */
+
+function generateEntity(): Entity {
+  const entity: Entity = sdk.keypair.generate({ compressed: true })
+  entity.signer = sdk.address.generate({ data: entity.public })
+
+  return entity
+}
+
+async function scenario1(paralellizationAmount: number, iterations: number) {
+  const amount = '10'
+  const issuanceAmount = paralellizationAmount * iterations * parseInt(amount)
+  const entities = _.map(_.range(paralellizationAmount * 2), a => generateEntity())
+
+  // fund all entities with enough money
+  await bluebird.map(entities, async e => issue(`${issuanceAmount}`, e.signer), { concurrency: 1 })
+
+  // build unique entity pairs - first to second, third to fourth etc.
+  const pairs = _.chunk(entities, 2) // access pairs by indices
+
+  // send parallelizationAmount of transactions between selected pairs, for iterations times
+  // pairs must be completely unique (no overlap of source OR target)
+  const data = []
+  for (let i = 0; i < iterations; i++) {
+    const resData = await bluebird.map(pairs, pair => {
+      return send(pair[0].signer, pair[0], pair[1].signer, amount, SYMBOL)
+    }, { concurrency: paralellizationAmount })
+
+    data.push(resData)
+  }
+
+  const dataFlat = _.flatten(data)
+  const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / paralellizationAmount * iterations
+  
+  const averageResponseByPair = _.map(_.range(paralellizationAmount), pairIndex => {
+    const pairResponses = _.map(data, iterationData => iterationData[pairIndex])
+    const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / iterations
+
+    return averageResponse
+  })
+
+  const averageResponseByIteration = _.map(_.range(iterations), iterationIndex => {
+    const iterationResponses = data[iterationIndex]
+    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / paralellizationAmount
+
+    return averageResponse
+  })
+
+  console.log(`Average response: ${averageResponse}`)
+  
+  console.log(`\n========\nAverage responses by pair:\n${JSON.stringify(averageResponse, null, 2)}`)
+  console.log(`\n========\nAverage responses by iteration:\n${JSON.stringify(averageResponse, null, 2)}`)
+
+  console.log(`\n========\nRaw data:\n${JSON.stringify(data, null, 2)}`)
+}
 
 scenario2()
   .then(() => console.log('DONE'))
