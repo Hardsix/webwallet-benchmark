@@ -89,11 +89,29 @@ async function issue(amount: string, targetAddress: string) {
 }
 
 async function main() {
+  // rojo first gets one big output it can spend
   issue('1000000', rojo.signer)
-  // const res = await send(rojo.signer, rojo, amarillo.signer, '10', SYMBOL)
-  const responses = await bluebird.map(_.range(100), async r => {
-    const res = await send(rojo.signer, rojo, amarillo.signer, '10', SYMBOL)
-    console.log('ANOTHER ONE!')
+
+  // rojo sends 1.000.000 in many small transactions to amarillo
+  const rojoFragmentTimes = await bluebird.map(_.range(100000), async r => {
+    const hrstart = process.hrtime()
+
+    await send(rojo.signer, rojo, amarillo.signer, '10', SYMBOL)
+
+    const hrend = process.hrtime(hrstart)
+    console.log(`GOT IT IN ${hrend[1] / 1000000} miliseconds!`)
+    return hrend[1] / 1000000 // miliseconds
+  }, { concurrency: 5 })
+
+  // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
+  // each transaction being 1000 (spends 100 outputs)
+  const responsesToBigAmarillo = await bluebird.each(_.range(10), async r => {
+    const res = await send(amarillo.signer, amarillo, rojo.signer, '1000', SYMBOL)
+  }, { concurrency: 5 })
+
+  // amarillo still has a LOT of unspent outputs amounting to 990.000, and it sends them back in a fragmented way
+  const responsesToAmarillo = await bluebird.map(_.range(99000), async r => {
+    const res = await send(amarillo.signer, amarillo, rojo.signer, '10', SYMBOL)
   }, { concurrency: 5 })
 }
 
