@@ -1,0 +1,8 @@
+node_modules/
+.env
+lerna-debug.log
+results/
+/.vscode/
+
+# Ignore local flags config
+config/flags/flag-values.local.yaml

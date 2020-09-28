@@ -1,0 +1,73 @@
+{
+  "hash": {
+    "types": "sha256:sha256",
+    "steps": "stringify:data",
+    "value": "147062d4e2992d8a4adc3b4e5311b8df2b368b1f29a93335664ef6b3bdbc7b89"
+  },
+  "data": {
+    "inputs": [
+      {
+        "hash": "b318ff402868910eab4a4f15ff7813fdba17b50db8b1aeb5c9e02b8d04ceb49f"
+      }
+    ],
+    "outputs": [
+      {
+        "address": "wS1EU4AtgzD6VDtsrJyGKXmkQdvkWt9Qeq",
+        "balance": {
+          "net": "-200",
+          "min": "-Infinity",
+          "max": "0"
+        },
+        "counter": "wS1EU4AtgzD6VDtsrJyGKXmkQdvkWt9Qeq",
+        "sources": [
+          "e23d62b51413282df5ae6e85476c0134c730f01c0a63c65b6720f06defebc4e0::0"
+        ]
+      },
+      {
+        "address": "wT99yCRnoYrN3KvTte3XhkUzjB9naFbwHo",
+        "balance": {
+          "net": "200",
+          "min": "0",
+          "max": "Infinity"
+        },
+        "counter": "wS1EU4AtgzD6VDtsrJyGKXmkQdvkWt9Qeq",
+        "sources": [
+          "e23d62b51413282df5ae6e85476c0134c730f01c0a63c65b6720f06defebc4e0::1"
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "inputs": [
+      {
+        "hash": {
+          "types": "sha256:sha256",
+          "steps": "stringify:data",
+          "value": "b318ff402868910eab4a4f15ff7813fdba17b50db8b1aeb5c9e02b8d04ceb49f"
+        },
+        "data": {
+          "domain": "localhost",
+          "source": "wS1EU4AtgzD6VDtsrJyGKXmkQdvkWt9Qeq",
+          "target": "wT99yCRnoYrN3KvTte3XhkUzjB9naFbwHo",
+          "symbol": "wS1EU4AtgzD6VDtsrJyGKXmkQdvkWt9Qeq",
+          "amount": "100",
+          "custom": "26c3cb1c29aa19cc63b19f2c8ed95ad8ca434dba80021f87969ff7c48aa0dfbb",
+          "expiry": "2020-09-24T15:08:41.583Z",
+          "random": "c9100aece0cf155783ef"
+        },
+        "meta": {
+          "signatures": [
+            {
+              "scheme": "ecdsa-ed25519",
+              "signer": "wS1EU4AtgzD6VDtsrJyGKXmkQdvkWt9Qeq",
+              "public": "03596a0b6e0d8ac185d28d9dccb8f8f1b262704d871a6c10a1eaa1234a034d1f80",
+              "string": "304402200c84adb44a2ff0999833ff600986468498bb9d4d12b1ee27c826b4a60afa1cd1022001f912d6d6f176f0f5e7c6a18efbfd4ee2f694cbb442fdfb648bfb595eff3409",
+              "linker": "sha256:ripemd160"
+            }
+          ]
+        }
+      }
+    ],
+    "signatures": []
+  }
+}
