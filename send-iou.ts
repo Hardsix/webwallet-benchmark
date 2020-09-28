@@ -278,33 +278,66 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
       return send(pair[0].signer, pair[0], pair[1].signer, amount, SYMBOL)
     }, { concurrency: paralellizationAmount })
 
+    if (i % 10 === 0) {
+      console.log(`Finished iteration ${i}`)
+    }
+
     data.push(resData)
   }
 
   const dataFlat = _.flatten(data)
-  const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / paralellizationAmount * iterations
-  
+  const erroredCount = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+  const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => dataPoint.miliseconds ? sum + dataPoint.miliseconds : sum, 0) / (paralellizationAmount * iterations - erroredCount)
+
   const averageResponseByPair = _.map(_.range(paralellizationAmount), pairIndex => {
     const pairResponses = _.map(data, iterationData => iterationData[pairIndex])
-    const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / iterations
+
+    const erroredCount = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.miliseconds ? 0 : 1, 0)
+    const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / (iterations - erroredCount)
 
     return averageResponse
   })
 
   const averageResponseByIteration = _.map(_.range(iterations), iterationIndex => {
     const iterationResponses = data[iterationIndex]
-    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / paralellizationAmount
+
+    const erroredCount = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.miliseconds ? 0 : 1, 0)
+    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / (paralellizationAmount - erroredCount)
 
     return averageResponse
   })
 
+  console.log('===============\nPERFORMANCE\n')
+
   console.log(`Average response: ${averageResponse}`)
   
-  console.log(`\n========\nAverage responses by pair:\n${JSON.stringify(averageResponse, null, 2)}`)
-  console.log(`\n========\nAverage responses by iteration:\n${JSON.stringify(averageResponse, null, 2)}`)
+  console.log(`\n========\nAverage responses by pair:\n${JSON.stringify(averageResponseByPair, null, 2)}`)
+  console.log(`\n========\nAverage responses by iteration:\n${JSON.stringify(averageResponseByIteration, null, 2)}`)
 
-  console.log(`\n========\nRaw data:\n${JSON.stringify(data, null, 2)}`)
+  console.log('\n\n===============\nERRORS\n')
+  const totalErrors = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+  
+  const errorsByPair = _.map(_.range(paralellizationAmount), pairIndex => {
+    const pairResponses = _.map(data, iterationData => iterationData[pairIndex])
+    const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+
+    return averageResponse
+  })
+
+  const errorsByIteration = _.map(_.range(iterations), iterationIndex => {
+    const iterationResponses = data[iterationIndex]
+    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+
+    return averageResponse
+  })
+
+  console.log(`Total errors: ${totalErrors}`)
+  console.log(`Errors by pair: ${errorsByPair}`)
+  console.log(`Errors by iteration: ${errorsByIteration}`)
+
+
+  console.log(`\n========\nRaw data:\n${JSON.stringify(_.map(data, d => _.map(d, e => e.miliseconds)), null, 2)}`)
 }
 
-scenario2()
+scenario1(500, 20)
   .then(() => console.log('DONE'))
