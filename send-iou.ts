@@ -73,9 +73,10 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
   }
 
   try {
+    const hrstart = process.hrtime()
     const res = await request({
       method: 'POST',
-      // uri: 'http://localhost:8082/transaction',
+      uri: 'http://localhost:8082/transaction',
       // uri: 'http://web-wallet-dot-core-prd.appspot.com/transaction'
       body,
       headers: {
@@ -83,20 +84,28 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
       },
       json: true,
     })
+    const hrend = process.hrtime(hrstart)
 
     if (logging) {
       console.log('IOU dispatched!')
       console.log(`${JSON.stringify(res, null, 3)}`)
     }
-    
-    return res
+
+    return {
+      res,
+      miliseconds: hrend[1] / 1000000
+    }
   } catch (err) {
-    console.log('ERROR OCCURRED')
-    if (logging) {
+    if (!logging) {
+      console.log('ERROR OCCURRED')
+    } else {
       console.log(`Error occurred: ${JSON.stringify(err, null, 2)}`)
     }
 
-    return null
+    return {
+      res: null,
+      miliseconds: null,
+    }
   }
 }
 
@@ -142,57 +151,29 @@ async function scenario2() {
   // rojo sends entire circulation in many small transactions to amarillo
   console.log(`Rojo sending total ${FRAGMENT_AMOUNT * FRAGMENT_COUNT} to Amarillo`)
   const rojoFragmentTimes = await bluebird.map(_.range(FRAGMENT_COUNT), async r => {
-    const hrstart = process.hrtime()
-    const res = await send(rojo.signer, rojo, amarillo.signer, `${FRAGMENT_AMOUNT}`, SYMBOL)
-    const hrend = process.hrtime(hrstart)
-
-    return {
-      valid: res !== null,
-      miliseconds: hrend[1] / 1000000
-    }
+    return send(rojo.signer, rojo, amarillo.signer, `${FRAGMENT_AMOUNT}`, SYMBOL)
   }, { concurrency: 1 })
   
   // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
   // spending 1000 outputs each
   console.log(`Amarillo sending total ${LARGE_AMOUNT * MIDDLE_TRANSACTION_COUNT} to Rojo`)
-  const largeAmarilloTimes = await bluebird.each(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
-    const hrstart = process.hrtime()
-    const res = await send(amarillo.signer, amarillo, rojo.signer, `${LARGE_AMOUNT}`, SYMBOL)
-    const hrend = process.hrtime(hrstart)
-
-    return {
-      valid: res !== null,
-      miliseconds: hrend[1] / 1000000
-    }
-  })
+  const largeAmarilloTimes = await bluebird.map(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
+    return send(amarillo.signer, amarillo, rojo.signer, `${LARGE_AMOUNT}`, SYMBOL, undefined)
+  }, { concurrency: 1 })
 
   // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
   // spending 100 outputs each
   console.log(`Amarillo sending total ${MEDIUM_AMOUNT * MIDDLE_TRANSACTION_COUNT} to Rojo`)
-  const mediumAmarilloTimes = await bluebird.each(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
-    const hrstart = process.hrtime()
-    const res = await send(amarillo.signer, amarillo, rojo.signer, `${MEDIUM_AMOUNT}`, SYMBOL)
-    const hrend = process.hrtime(hrstart)
-
-    return {
-      valid: res !== null,
-      miliseconds: hrend[1] / 1000000
-    }
-  })
+  const mediumAmarilloTimes = await bluebird.map(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
+    return send(amarillo.signer, amarillo, rojo.signer, `${MEDIUM_AMOUNT}`, SYMBOL, undefined)
+  }, { concurrency: 1 })
 
   // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
   // spending 1000 outputs each
   console.log(`Amarillo sending total ${SMALL_AMOUNT * MIDDLE_TRANSACTION_COUNT} to Rojo`)
-  const smallAmarilloTimes = await bluebird.each(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
-    const hrstart = process.hrtime()
-    const res = await send(amarillo.signer, amarillo, rojo.signer, `${SMALL_AMOUNT}`, SYMBOL)
-    const hrend = process.hrtime(hrstart)
-
-    return {
-      valid: res !== null,
-      miliseconds: hrend[1] / 1000000
-    }
-  })
+  const smallAmarilloTimes = await bluebird.map(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
+    return send(amarillo.signer, amarillo, rojo.signer, `${SMALL_AMOUNT}`, SYMBOL)
+  }, { concurrency: 1 })
 
   // amarillo still has a LOT of unspent outputs, send them back in a fragmented way
   const countToSend = FRAGMENT_COUNT 
@@ -201,26 +182,17 @@ async function scenario2() {
     - (MIDDLE_TRANSACTION_COUNT * LARGE_AMOUNT / FRAGMENT_AMOUNT)
 
   console.log(`Amarillo sending total ${countToSend * FRAGMENT_AMOUNT} to Rojo`)
-  const amarilloFragmentTimes = await bluebird.map(
-    _.range(countToSend),
-    async r => {
-      const hrstart = process.hrtime()
-      const res = await send(amarillo.signer, amarillo, rojo.signer, `${FRAGMENT_AMOUNT}`, SYMBOL)
-      const hrend = process.hrtime(hrstart)
-
-      return {
-        valid: res !== null,
-        miliseconds: hrend[1] / 1000000
-      }
+  const amarilloFragmentTimes = await bluebird.map(_.range(countToSend), async r => {
+      return send(amarillo.signer, amarillo, rojo.signer, `${FRAGMENT_AMOUNT}`, SYMBOL)
     },
   { concurrency: 1 })
 
-  const rojoFragmentErrors = _.reduce(rojoFragmentTimes, (sum, res) => sum + res.valid ? sum : sum + 1, 0)
-  const largeAmarilloErrors = _.reduce(largeAmarilloTimes, (sum, res) => sum + res.valid ? sum : sum + 1, 0)
-  const mediumAmarilloErrors = _.reduce(mediumAmarilloTimes, (sum, res) => sum + res.valid ? sum : sum + 1, 0)
-  const smallAmarilloErrors = _.reduce(smallAmarilloTimes, (sum, res) => sum + res.valid ? sum : sum + 1, 0)
-  const amarilloFragmentErrors = _.reduce(amarilloFragmentTimes, (sum, res) => sum + res.valid ? sum : sum + 1, 0)
-  console.log(`Errors:\n${JSON.stringify({
+  const rojoFragmentErrors = _.reduce(rojoFragmentTimes, (sum, res) => sum + res.res ? sum : sum + 1, 0)
+  const largeAmarilloErrors = _.reduce(largeAmarilloTimes, (sum, res) => sum + res.res ? sum : sum + 1, 0)
+  const mediumAmarilloErrors = _.reduce(mediumAmarilloTimes, (sum, res) => sum + res.res ? sum : sum + 1, 0)
+  const smallAmarilloErrors = _.reduce(smallAmarilloTimes, (sum, res) => sum + res.res ? sum : sum + 1, 0)
+  const amarilloFragmentErrors = _.reduce(amarilloFragmentTimes, (sum, res) => sum + res.res ? sum : sum + 1, 0)
+  console.log(`ERRORS:\n${JSON.stringify({
     rojoFragmentErrors,
     largeAmarilloErrors,
     mediumAmarilloErrors,
@@ -228,22 +200,22 @@ async function scenario2() {
     amarilloFragmentErrors,
   }, null, 2)}`)
 
-  const rojoFragmentTotalTime = _.reduce(rojoFragmentTimes, (sum, res) => sum + res.miliseconds, 0)
+  const rojoFragmentTotalTime = _.reduce(_.filter(rojoFragmentTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const rojoFragmentAverageTime = rojoFragmentTotalTime / 1.0 / rojoFragmentTimes.length
 
-  const largeAmarilloTotalTime = _.reduce(largeAmarilloTimes, (sum, res) => sum + res.miliseconds, 0)
+  const largeAmarilloTotalTime = _.reduce(_.filter(largeAmarilloTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const largeAmarilloAverageTime = largeAmarilloTotalTime / 1.0 / largeAmarilloTimes.length
 
-  const mediumAmarilloTotalTime = _.reduce(mediumAmarilloTimes, (sum, res) => sum + res.miliseconds, 0)
+  const mediumAmarilloTotalTime = _.reduce(_.filter(mediumAmarilloTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const mediumAmarilloAverageTime = mediumAmarilloTotalTime / 1.0 / mediumAmarilloTimes.length
   
-  const smallAmarilloTotalTime = _.reduce(smallAmarilloTimes, (sum, res) => sum + res.miliseconds, 0)
+  const smallAmarilloTotalTime = _.reduce(_.filter(smallAmarilloTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const smallAmarilloAverageTime = smallAmarilloTotalTime / 1.0 / smallAmarilloTimes.length
 
-  const amarilloFragmentTotalTime = _.reduce(amarilloFragmentTimes, (sum, res) => sum + res.miliseconds, 0)
+  const amarilloFragmentTotalTime = _.reduce(_.filter(amarilloFragmentTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const amarilloFragmentAverageTime = amarilloFragmentTotalTime / 1.0 / amarilloFragmentTimes.length
   
-  console.log(`Errors:\n${JSON.stringify({
+  console.log(`PERFORMANCE:\n${JSON.stringify({
     rojoFragmentTotalTime,
     rojoFragmentAverageTime,
     largeAmarilloTotalTime,
@@ -256,13 +228,18 @@ async function scenario2() {
     amarilloFragmentAverageTime,
   }, null, 2)}`)
 
+  console.log(largeAmarilloTimes[0].res)
+
   console.log('\n\n=====================DETAILED TIME BREAKDOWN=====================\n')
 
-  console.log('\nAMARILLO TIMES:\n')
+  console.log('\nROJO FRAGMENT TIMES:\n')
   console.log(JSON.stringify(_.map(rojoFragmentTimes, l => l.miliseconds)))
   
-  console.log('\nAMARILLO TIMES:\n')
+  console.log('\nAMARILLO FRAGMENT TIMES:\n')
   console.log(JSON.stringify(_.map(amarilloFragmentTimes, l => l.miliseconds)))
+
+  console.log('\nAMARILLO MID TRANSACTION TIMES:\n')
+  console.log(JSON.stringify(_.map(_.concat(largeAmarilloTimes, mediumAmarilloTimes, smallAmarilloTimes), l => l.miliseconds)))
 }
 
 /* SCENARIOS
@@ -271,7 +248,7 @@ async function scenario2() {
 PARALLELIZATION_AMOUNT of different pair of addresses (different source, different target, they repeat in every batch)
 - 10 in parallel, 50, 100, 500
 
-2) Ping - send to self, or to another address, repeatedly, around 10000 times
+2) Ping - send to another address, repeatedly, around 10000 times
 - 1 by 1
 
 */
