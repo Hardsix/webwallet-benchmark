@@ -111,13 +111,18 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
 }
 
 async function issue(amount: string, targetAddress: string): Promise<void> {
-  await send(issuer.signer, issuer, targetAddress, amount, SYMBOL)
+  await send(issuer.signer, issuer, targetAddress, amount, SYMBOL, undefined, false)
 }
 
-async function scenario2() {
+const SIM_SIZE = {
+  SMALL: 'small',
+  BIG: 'big',
+}
+
+async function scenario2({ simSize = SIM_SIZE.BIG }) {
   // SHORT SIMULATION
-  // const TOTAL_CIRCULATION = 10
-  // const FRAGMENT_COUNT = 10
+  // const TOTAL_CIRCULATION = 100
+  // const FRAGMENT_COUNT = 100
   // const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
   // const LARGE_AMOUNT = 1
   // const MEDIUM_AMOUNT = 1
@@ -125,12 +130,20 @@ async function scenario2() {
   // const MIDDLE_TRANSACTION_COUNT = 1
 
   // LONG SIMULATION
-  const TOTAL_CIRCULATION = 100000
-  const FRAGMENT_COUNT = 10000
+  // const TOTAL_CIRCULATION = 100000
+  // const FRAGMENT_COUNT = 10000
+  // const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
+  // const LARGE_AMOUNT = FRAGMENT_AMOUNT * 1000
+  // const MEDIUM_AMOUNT = FRAGMENT_AMOUNT * 100
+  // const SMALL_AMOUNT = FRAGMENT_AMOUNT * 10
+  // const MIDDLE_TRANSACTION_COUNT = 1
+
+  const TOTAL_CIRCULATION = simSize === SIM_SIZE.BIG ? 100000 : 10
+  const FRAGMENT_COUNT =  simSize === SIM_SIZE.BIG ? 10000 : 10
   const FRAGMENT_AMOUNT = TOTAL_CIRCULATION / FRAGMENT_COUNT
-  const LARGE_AMOUNT = FRAGMENT_AMOUNT * 1000
-  const MEDIUM_AMOUNT = FRAGMENT_AMOUNT * 100
-  const SMALL_AMOUNT = FRAGMENT_AMOUNT * 10
+  const LARGE_AMOUNT = simSize === SIM_SIZE.BIG ? FRAGMENT_AMOUNT * 1000 : 1
+  const MEDIUM_AMOUNT = simSize === SIM_SIZE.BIG ? FRAGMENT_AMOUNT * 100 : 1
+  const SMALL_AMOUNT = simSize === SIM_SIZE.BIG ? FRAGMENT_AMOUNT * 10 : 1
   const MIDDLE_TRANSACTION_COUNT = 1
 
   console.log('Benchmark config:\n' + JSON.stringify({
@@ -213,7 +226,15 @@ async function scenario2() {
 
   const amarilloFragmentTotalTime = _.reduce(_.filter(amarilloFragmentTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const amarilloFragmentAverageTime = amarilloFragmentTotalTime / 1.0 / amarilloFragmentTimes.length
-  
+
+  const allTimes = _.concat(rojoFragmentTimes, largeAmarilloTimes, mediumAmarilloTimes, smallAmarilloTimes, amarilloFragmentTimes)
+
+  const getUnspentOutputsTimeTotal = _.reduce(_.filter(allTimes, r => r.res), (sum, res) => sum + res.res.getUnspentOutputsTime, 0)
+  const getUnspentOutputsTimeAvg = getUnspentOutputsTimeTotal / 1.0 / allTimes.length
+
+  const getOutputContentsTimeTotal = _.reduce(_.filter(allTimes, r => r.res), (sum, res) => sum + res.res.getOutputContentsTime, 0)
+  const getOutputContentsTimeAvg = getOutputContentsTimeTotal / 1.0 / allTimes.length
+
   console.log(`PERFORMANCE:\n${JSON.stringify({
     rojoFragmentTotalTime,
     rojoFragmentAverageTime,
@@ -225,12 +246,18 @@ async function scenario2() {
     smallAmarilloAverageTime,
     amarilloFragmentTotalTime,
     amarilloFragmentAverageTime,
+    getUnspentOutputsTimeAvg,
+    getOutputContentsTimeAvg,
   }, null, 2)}`)
-
-  console.log(largeAmarilloTimes[0].res)
 
   console.log('\n\n=====================DETAILED TIME BREAKDOWN=====================\n')
 
+  console.log('\ngetUnspentOutputsTimes:\n')
+  console.log(JSON.stringify(_.map(allTimes, l => l.res.getUnspentOutputsTime)))
+
+  console.log('\ngetOutputContentsTimes:\n')
+  console.log(JSON.stringify(_.map(allTimes, l => l.res.getOutputContentsTime)))
+  
   console.log('\nROJO FRAGMENT TIMES:\n')
   console.log(JSON.stringify(_.map(rojoFragmentTimes, l => l.miliseconds)))
   
@@ -286,6 +313,13 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   }
 
   const dataFlat = _.flatten(data)
+
+  const getUnspentOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.res.getUnspentOutputsTime, 0)
+  const getUnspentOutputsTimeAvg = getUnspentOutputsTimeTotal / 1.0 / dataFlat.length
+
+  const getOutputContentsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.res.getOutputContentsTime, 0)
+  const getOutputContentsTimeAvg = getOutputContentsTimeTotal / 1.0 / dataFlat.length
+
   const erroredCount = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
   const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => dataPoint.miliseconds ? sum + dataPoint.miliseconds : sum, 0) / (paralellizationAmount * iterations - erroredCount)
 
@@ -310,6 +344,9 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   console.log('===============\nPERFORMANCE\n')
 
   console.log(`Average response: ${averageResponse}`)
+
+  console.log(`Unspent outputs calculation: ${getUnspentOutputsTimeAvg}`)
+  console.log(`Output contents calculation: ${getOutputContentsTimeAvg}`)
   
   console.log(`\n========\nAverage responses by pair:\n${JSON.stringify(averageResponseByPair, null, 2)}`)
   console.log(`\n========\nAverage responses by iteration:\n${JSON.stringify(averageResponseByIteration, null, 2)}`)
@@ -339,5 +376,7 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   console.log(`\n========\nRaw data:\n${JSON.stringify(_.map(data, d => _.map(d, e => e.miliseconds)), null, 2)}`)
 }
 
-scenario1(500, 20)
+scenario2({ simSize: SIM_SIZE.SMALL })
   .then(() => console.log('DONE'))
+
+// scenario1(50, 50).then(() => console.log('DONE'))
