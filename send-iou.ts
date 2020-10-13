@@ -1,3 +1,4 @@
+import { sleepAsync } from './utils/sleep'
 import { defaultDate, entitiesData, Entity, WALLET_URIS } from './config/data'
 import { generateEntity } from './utils/generate-entity'
 const sdk = require('@webwallet/sdk')
@@ -431,12 +432,46 @@ function runScenario1FullSuite() {
     ===============\n
     `)
     await scenario.scenario(scenario.pairs, scenario.iterations)
+    await sleepAsync(10000)
   })
 }
 
-runScenario1FullSuite()
+function runScenario2FullSuite() {
+  const scenarioDesc = '2 - long running transaction chains'
+  const scenario = scenario2
+  const scenarios = [
+    {
+      scenarioDesc,
+      scenario,
+      simSize: SIM_SIZE.SMALL,
+    },
+    {
+      scenarioDesc,
+      scenario,
+      simSize: SIM_SIZE.BIG,
+    } 
+  ]
+  
+  bluebird.each(scenarios, async scenario => {
+    console.log(`
+    ===============
+    +++++++++++++++
+    ===============\n
+    RUNNING SCENARIO - ${scenario.scenarioDesc}: Size ${scenario.simSize}!
+    \n    ===============
+    +++++++++++++++
+    ===============\n
+    `)
+    await scenario.scenario({ simSize: scenario.simSize })
+    await sleepAsync(10000)
+  })
+}
 
-// scenario2({ simSize: SIM_SIZE.SMALL })
+// runScenario1FullSuite()
+runScenario2FullSuite()
+
+// runConfig.logLevel = 3
+// scenario2({ simSize: SIM_SIZE.BIG })
 //   .then(() => console.log('DONE'))
 
 // scenario1(2, 5).then(() => console.log('DONE'))
