@@ -12,6 +12,7 @@ const SIM_SIZE = {
 
 const runConfig = {
   issuer: entitiesData.stg.testBank1,
+  // symbol: entitiesData.stg.testBank1.signer, 
   symbol: entitiesData.stg.TIN_SYMBOL_STG,
   rojo: entitiesData.local.rojo,
   amarillo: entitiesData.local.amarillo,
@@ -22,8 +23,18 @@ const runConfig = {
   apiReturnsTimes: false, // true if wallet api returns `times` breakdown in transaction response
 }
 
-async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logLevel: number = 1) 
+async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logLevel: number = 1, randomErrors = false) 
 : Promise<{ res, miliseconds: number, times: object }> {
+  const rand = Math.floor(Math.random() * Math.floor(2))
+
+  if (randomErrors && rand) {
+    return {
+      res: null,
+      miliseconds: null,
+      times: null,
+    }
+  }
+
   /* Prepare IOU claims */
   const claims = {
     domain: 'localhost',
@@ -129,6 +140,9 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   const data = []
   for (let i = 0; i < iterations; i++) {
     const resData = await bluebird.map(pairs, pair => {
+      // this will randomly throw errors
+      // return send(pair[0].signer, pair[0], pair[1].signer, amount, runConfig.symbol, undefined, 0, true)
+
       return send(pair[0].signer, pair[0], pair[1].signer, amount, runConfig.symbol)
     }, { concurrency: paralellizationAmount })
 
@@ -153,29 +167,19 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
     querySpendTransactionOutputsTimeAvg = querySpendTransactionOutputsTimeTotal / 1.0 / dataFlat.length
   }
   
-  const erroredCount = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+  const erroredCount = _.reduce(dataFlat, (sum, dataPoint) => sum + (dataPoint.res ? 0 : 1), 0)
   const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => dataPoint.miliseconds ? sum + dataPoint.miliseconds : sum, 0) / (paralellizationAmount * iterations - erroredCount)
 
   const averageResponseByPair = _.map(_.range(paralellizationAmount), pairIndex => {
     const pairResponses = _.map(data, iterationData => iterationData[pairIndex])
 
-    const erroredCount = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.miliseconds ? 0 : 1, 0)
+    const erroredCount = _.reduce(pairResponses, (sum, dataPoint) => sum + (dataPoint.miliseconds ? 0 : 1), 0)
     const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / (iterations - erroredCount)
 
     return averageResponse
   })
 
-  const averageResponseByIteration = _.map(_.range(iterations), iterationIndex => {
-    const iterationResponses = data[iterationIndex]
-
-    const erroredCount = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.miliseconds ? 0 : 1, 0)
-    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.miliseconds, 0) / (paralellizationAmount - erroredCount)
-
-    return averageResponse
-  })
-
   console.log('===============\nPERFORMANCE\n')
-
   console.log(`Average response (ms): ${averageResponse}ms`)
 
   if (runConfig.apiReturnsTimes) {
@@ -184,21 +188,19 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   }
   
   console.log(`\n========\nAverage responses by pair (ms):\n${JSON.stringify(averageResponseByPair, null, 2)}`)
-  console.log(`\n========\nAverage responses by iteration (ms):\n${JSON.stringify(averageResponseByIteration, null, 2)}`)
-
   console.log('\n\n===============\nERRORS\n')
-  const totalErrors = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+  const totalErrors = _.reduce(dataFlat, (sum, dataPoint) => sum + (dataPoint.res ? 0 : 1), 0)
   
   const errorsByPair = _.map(_.range(paralellizationAmount), pairIndex => {
     const pairResponses = _.map(data, iterationData => iterationData[pairIndex])
-    const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+    const averageResponse = _.reduce(pairResponses, (sum, dataPoint) => sum + (dataPoint.res ? 0 : 1), 0)
 
     return averageResponse
   })
 
   const errorsByIteration = _.map(_.range(iterations), iterationIndex => {
     const iterationResponses = data[iterationIndex]
-    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
+    const averageResponse = _.reduce(iterationResponses, (sum, dataPoint) => sum + (dataPoint.res ? 0 : 1), 0)
 
     return averageResponse
   })
@@ -352,7 +354,91 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
   }
 }
 
-scenario2({ simSize: SIM_SIZE.SMALL })
-  .then(() => console.log('DONE'))
+function runScenario1FullSuite() {
+  const scenarioDesc = '1 - parallel transactions'
+  const scenario = scenario1
+  const scenarios = [
+    {
+      scenarioDesc,
+      scenario,
+      pairs: 3,
+      iterations: 5,
+    },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 5,
+    //   iterations: 50,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 20,
+    //   iterations: 10,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 20,
+    //   iterations: 50,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 50,
+    //   iterations: 10,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 50,
+    //   iterations: 50,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 100,
+    //   iterations: 10,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 100,
+    //   iterations: 50,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 200,
+    //   iterations: 10,
+    // },
+    // {
+    //   scenarioDesc,
+    //   scenario,
+    //   pairs: 500,
+    //   iterations: 15,
+    // },
+  ]
+  
+  bluebird.each(scenarios, async scenario => {
+    console.log(`
+    ===============
+    +++++++++++++++
+    ===============\n
+    RUNNING SCENARIO - ${scenario.scenarioDesc}: ${scenario.pairs} pairs, ${scenario.iterations} iterations!
+    \n    ===============
+    +++++++++++++++
+    ===============\n
+    `)
+    await scenario.scenario(scenario.pairs, scenario.iterations)
+  })
+}
+
+runScenario1FullSuite()
+
+// scenario2({ simSize: SIM_SIZE.SMALL })
+//   .then(() => console.log('DONE'))
 
 // scenario1(2, 5).then(() => console.log('DONE'))
+
+
