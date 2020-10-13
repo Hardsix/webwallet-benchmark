@@ -1,88 +1,31 @@
+import { defaultDate, entitiesData, Entity, WALLET_URIS } from './config/data'
+import { generateEntity } from './utils/generate-entity'
 const sdk = require('@webwallet/sdk')
-const bs58check = require('bs58check')
 const request = require('request-promise')
 const _ = require('lodash')
 const bluebird = require('bluebird')
 
-const defaultDate = (new Date(2023)).toISOString()
-
-const WALLET_URIS = {
-  PRODUCTION: 'http://web-wallet-dot-core-prd.appspot.com/transaction',
-  LOCAL: 'http://localhost:8082/transaction',
-  GCP_FUTURE: 'http://34.77.237.255:8081/transaction',
-  GCP_LEGACY: 'http://34.78.22.71:8081/transaction',
-  GCP_TST: 'http://web-wallet-dot-core-tst.appspot.com/transaction',
-  GCP_STG: 'https://web-wallet-dot-core-stg.appspot.com/transaction',
+const SIM_SIZE = {
+  SMALL: 'small',
+  BIG: 'big',
 }
 
-const TIN = 'wd7VoAD3PzRdRRuKUbSUzL2gFgSD4Z8HRC'
-
-function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}  
-
-interface Entity {
-  scheme: string
-  public: string
-  secret: string
-  signer: string
+const runConfig = {
+  issuer: entitiesData.stg.testBank1,
+  symbol: entitiesData.stg.TIN_SYMBOL_STG,
+  rojo: entitiesData.local.rojo,
+  amarillo: entitiesData.local.amarillo,
+  logLevel: 1,
+  showAllRawResults: false,
+  simSize: SIM_SIZE.SMALL,
+  walletUri: WALLET_URIS.GCP_STG,
+  apiReturnsTimes: false, // true if wallet api returns `times` breakdown in transaction response
 }
 
-// const issuer: Entity = {
-//   scheme: "ecdsa-ed25519",
-//   public: "040847a066ec3d86b2766a2fad0331e64c34ce45d1e457c45b6eb5d171bd5143ce6b6873efd10ce0dba3001bea8d85fe2ab02c80dca3b00083b78f503dd0ce0275",
-//   secret: "043cae98277b4cb909d2b81559ab907e9ae5321e790678494634bfcdea2b722d",
-//   signer: "wbmMFVkmphCeb5QEXdTqfXp52EatuE1Quu"
-// }
-
-const TIN_SYMBOL_STG = "wMxKCAzsQBiUURDU3xD3xuSbVo1S9jmf3d"
-// const SYMBOL = issuer.signer
-const SYMBOL = TIN_SYMBOL_STG
-// const SYMBOL = 'wd7VoAD3PzRdRRuKUbSUzL2gFgSD4Z8HRC' // TIN
-
-const rojo: Entity = {
-  scheme: "ecdsa-ed25519",
-  public: "0423f8b192884eb5d71802fb50f21068fa43c9733893a6d4bb420e2827647cb728178dfe197957c127ee6851250611d9205ed9a5435034f0169580e899e7b32282",
-  secret: "03ead306f42e95861bed33effe37f2bc2720d5f8da3ba286b358d78cfff245af",
-  signer: "wdEHHkz5FLAvb2UfmCSrw1w9Dn87reYuSP"
-}
-
-const amarillo: Entity = {
-  scheme: "ecdsa-ed25519",
-  public: "04147f1c7d498559279b322ff5023b206fb7c138208f8b957810740124fdf4cadd5ae9f8fa1729f286c8922ba096e987e52c72ebfdf4382b3101e133225f3afa54",
-  secret: "9a4811f1b5af9a810d2a89e172c24ff8a4bbb130d841d565c727d725f6d3a7",
-  signer: "wc3Kgynkv96bK6Ukef3TrhP4CvZPkxQ1un"
-}
-
-const stgTestBank1: Entity = {
-  "public": "0406684e8cb6236b220c43cff448751a2b0b2f917182ccc5e62687565b84bbb59426b0905274b27cbb0f4abfd07747d028eda63a6a2867d8bbcbd64106273a5fe6",
-  "scheme": "ecdsa-ed25519",
-  "secret": "0e38ddcac886fc8982168e78eff215b08ff38e5d40fbb13597d8a6977aff36ab",
-  "signer": "whmFECWeYG45LxhFMNUg7y6qFSnXkhThoj",
-}
-
-const issuer = stgTestBank1
-
-// const movii: Entity = {
-//   scheme: "ecdsa-ed25519",
-//   public: "04147f1c7d498559279b322ff5023b206fb7c138208f8b957810740124fdf4cadd5ae9f8fa1729f286c8922ba096e987e52c72ebfdf4382b3101e133225f3afa54",
-//   secret: "9a4811f1b5af9a810d2a89e172c24ff8a4bbb130d841d565c727d725f6d3a7",
-//   signer: "wVCmBRk2jz5fBi47kpzGZezoovzfudv6L2"
-// }
-// const rojo = movii
-// const issuer = movii
-
-// issuer.scheme = movii.scheme
-// issuer.public = movii.public
-// issuer.secret = movii.secret
-// issuer.signer = movii.signer
-
-async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = false) 
+async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logLevel: number = 1) 
 : Promise<{ res, miliseconds: number, times: object }> {
   /* Prepare IOU claims */
-  let claims = {
+  const claims = {
     domain: 'localhost',
     source: sourceAddress,
     target: targetAddress,
@@ -92,20 +35,19 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
   }
 
   /* Write and sign IOU */
-  let signers = [sourceKeys]
+  const signers = [sourceKeys]
 
-  let iou = sdk.iou.write(claims).sign(signers)
+  const iou = sdk.iou.write(claims).sign(signers)
 
   /* Build transaction request body */
-  let body = {
+  const body = {
     data: {
       inputs: [iou]
     }
   }
 
   /* Send transaction request */
-  // console.log(`${JSON.stringify(iou, null, 2)}`)
-  if (logging) {
+  if (logLevel > 0) {
     console.log(`Sending ${amount} ${symbol} from ${sourceAddress} to ${targetAddress}`)
   }
 
@@ -113,7 +55,7 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
     const hrstart = process.hrtime()
     const res = await request({
       method: 'POST',
-      uri: `${WALLET_URIS.GCP_STG}`,
+      uri: `${runConfig.walletUri}`,
       body,
       headers: {
         'content-type': 'application/json',
@@ -124,12 +66,12 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
     })
     const hrend = process.hrtime(hrstart)
 
-    if (logging) {
+    if (logLevel > 1) {
       console.log('IOU dispatched!')
     }
 
-    const miliseconds = (hrend[0] * 1000000) + (hrend[1] / 1000000)
-    if (logging) {
+    const miliseconds = (hrend[0] * 1000) + (hrend[1] / 1000000)
+    if (logLevel > 1) {
       console.log(`Finished one in ${hrend[0]}s ${hrend[1] / 1000000}ms with:\n${JSON.stringify(
         res.times, null, 2
       )}`)
@@ -141,7 +83,7 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
       times: res.times,
     }
   } catch (err) {
-    if (!logging) {
+    if (logLevel <= 2) {
       console.log('ERROR OCCURRED')
     } else {
       console.log(`Error occurred: ${JSON.stringify(err, null, 2)}`)
@@ -155,13 +97,8 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
   }
 }
 
-async function issue(amount: string, targetAddress: string, issuerEntity: Entity = issuer): Promise<void> {
-  await send(issuerEntity.signer, issuerEntity, targetAddress, amount, SYMBOL, undefined, false)
-}
-
-const SIM_SIZE = {
-  SMALL: 'small',
-  BIG: 'big',
+async function issue(amount: string, targetAddress: string, issuerEntity: Entity = runConfig.issuer): Promise<void> {
+  await send(issuerEntity.signer, issuerEntity, targetAddress, amount, runConfig.symbol, undefined, runConfig.logLevel)
 }
 
 /* SCENARIOS
@@ -175,12 +112,6 @@ PARALLELIZATION_AMOUNT of different pair of addresses (different source, differe
 
 */
 
-function generateEntity(): Entity {
-  const entity: Entity = sdk.keypair.generate({ compressed: true })
-  entity.signer = sdk.address.generate({ data: entity.public })
-
-  return entity
-}
 
 async function scenario1(paralellizationAmount: number, iterations: number) {
   const amount = '10'
@@ -198,7 +129,7 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   const data = []
   for (let i = 0; i < iterations; i++) {
     const resData = await bluebird.map(pairs, pair => {
-      return send(pair[0].signer, pair[0], pair[1].signer, amount, SYMBOL)
+      return send(pair[0].signer, pair[0], pair[1].signer, amount, runConfig.symbol)
     }, { concurrency: paralellizationAmount })
 
     if (i % 10 === 0) {
@@ -210,21 +141,18 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
 
   const dataFlat = _.flatten(data)
 
-  // "setupTime": 7.287783,
-  // "getUnspentOutputsTime": 251.173786,
-  // "getOutputContentsTime": 514.898528,
-  // "feedPreviousToOutputsTime": 0.561477,
-  // "feedInputsToOutputsTime": 0.153722,
-  // "buildDocumentTime": 0.532815,
-  // "storeTransactionRecordTime": 212.119642,
-  // "querySpendTransactionOutputsTime": 349.067399
+  let getUnspentOutputsTimeTotal
+  let getUnspentOutputsTimeAvg
+  let querySpendTransactionOutputsTimeTotal
+  let querySpendTransactionOutputsTimeAvg
+  if (runConfig.apiReturnsTimes) {
+    getUnspentOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.getUnspentOutputsTime, 0)
+    getUnspentOutputsTimeAvg = getUnspentOutputsTimeTotal / 1.0 / dataFlat.length
 
-  // const getUnspentOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.getUnspentOutputsTime, 0)
-  // const getUnspentOutputsTimeAvg = getUnspentOutputsTimeTotal / 1.0 / dataFlat.length
-
-  // const querySpendTransactionOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.querySpendTransactionOutputsTime, 0)
-  // const querySpendTransactionOutputsTimeAvg = querySpendTransactionOutputsTimeTotal / 1.0 / dataFlat.length
-
+    querySpendTransactionOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.querySpendTransactionOutputsTime, 0)
+    querySpendTransactionOutputsTimeAvg = querySpendTransactionOutputsTimeTotal / 1.0 / dataFlat.length
+  }
+  
   const erroredCount = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
   const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => dataPoint.miliseconds ? sum + dataPoint.miliseconds : sum, 0) / (paralellizationAmount * iterations - erroredCount)
 
@@ -248,13 +176,15 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
 
   console.log('===============\nPERFORMANCE\n')
 
-  console.log(`Average response: ${averageResponse}`)
+  console.log(`Average response (ms): ${averageResponse}ms`)
 
-  // console.log(`Unspent outputs calculation: ${getUnspentOutputsTimeAvg}`)
-  // console.log(`Spend outputs calculation  : ${querySpendTransactionOutputsTimeAvg}`)
+  if (runConfig.apiReturnsTimes) {
+    console.log(`Unspent outputs calculation: ${getUnspentOutputsTimeAvg}`)
+    console.log(`Spend outputs calculation  : ${querySpendTransactionOutputsTimeAvg}`)
+  }
   
-  console.log(`\n========\nAverage responses by pair:\n${JSON.stringify(averageResponseByPair, null, 2)}`)
-  console.log(`\n========\nAverage responses by iteration:\n${JSON.stringify(averageResponseByIteration, null, 2)}`)
+  console.log(`\n========\nAverage responses by pair (ms):\n${JSON.stringify(averageResponseByPair, null, 2)}`)
+  console.log(`\n========\nAverage responses by iteration (ms):\n${JSON.stringify(averageResponseByIteration, null, 2)}`)
 
   console.log('\n\n===============\nERRORS\n')
   const totalErrors = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
@@ -277,8 +207,9 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   console.log(`Errors by pair: ${errorsByPair}`)
   console.log(`Errors by iteration: ${errorsByIteration}`)
 
-
-  // console.log(`\n========\nRaw data:\n${JSON.stringify(_.map(data, d => _.map(d, e => e.miliseconds)), null, 2)}`)
+  if (runConfig.showAllRawResults) {
+    console.log(`\n========\nRaw data (ms):\n${JSON.stringify(_.map(data, d => _.map(d, e => e.miliseconds)), null, 2)}`)
+  }
 }
 
 async function scenario2({ simSize = SIM_SIZE.BIG }) {
@@ -320,33 +251,33 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
 
   // rojo first gets one big output it can spend
   console.log(`Issuing ${2 * TOTAL_CIRCULATION} to rojo`)
-  await issue(`${2 * TOTAL_CIRCULATION}`, rojo.signer)
+  await issue(`${2 * TOTAL_CIRCULATION}`, runConfig.rojo.signer)
 
   // rojo sends entire circulation in many small transactions to amarillo
   console.log(`Rojo sending total ${FRAGMENT_AMOUNT * FRAGMENT_COUNT} to Amarillo`)
   const rojoFragmentTimes = await bluebird.map(_.range(10), async r => {
-    return send(rojo.signer, rojo, amarillo.signer, `${FRAGMENT_AMOUNT}`, SYMBOL)
+    return send(runConfig.rojo.signer, runConfig.rojo, runConfig.amarillo.signer, `${FRAGMENT_AMOUNT}`, runConfig.symbol)
   }, { concurrency: 1 })
   
   // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
   // spending 1000 outputs each
   console.log(`Amarillo sending total ${LARGE_AMOUNT * MIDDLE_TRANSACTION_COUNT} to Rojo`)
   const largeAmarilloTimes = await bluebird.map(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
-    return send(amarillo.signer, amarillo, rojo.signer, `${LARGE_AMOUNT}`, SYMBOL, undefined)
+    return send(runConfig.amarillo.signer, runConfig.amarillo, runConfig.rojo.signer, `${LARGE_AMOUNT}`, runConfig.symbol, undefined)
   }, { concurrency: 1 })
 
   // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
   // spending 100 outputs each
   console.log(`Amarillo sending total ${MEDIUM_AMOUNT * MIDDLE_TRANSACTION_COUNT} to Rojo`)
   const mediumAmarilloTimes = await bluebird.map(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
-    return send(amarillo.signer, amarillo, rojo.signer, `${MEDIUM_AMOUNT}`, SYMBOL, undefined)
+    return send(runConfig.amarillo.signer, runConfig.amarillo, runConfig.rojo.signer, `${MEDIUM_AMOUNT}`, runConfig.symbol, undefined)
   }, { concurrency: 1 })
 
   // since amarillo now has a LOT of unspent outputs, it now tries to spend them by sending back 10 transactions one by one,
   // spending 1000 outputs each
   console.log(`Amarillo sending total ${SMALL_AMOUNT * MIDDLE_TRANSACTION_COUNT} to Rojo`)
   const smallAmarilloTimes = await bluebird.map(_.range(MIDDLE_TRANSACTION_COUNT), async r => {
-    return send(amarillo.signer, amarillo, rojo.signer, `${SMALL_AMOUNT}`, SYMBOL)
+    return send(runConfig.amarillo.signer, runConfig.amarillo, runConfig.rojo.signer, `${SMALL_AMOUNT}`, runConfig.symbol)
   }, { concurrency: 1 })
 
   // amarillo still has a LOT of unspent outputs, send them back in a fragmented way
@@ -357,7 +288,7 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
 
   console.log(`Amarillo sending total ${countToSend * FRAGMENT_AMOUNT} to Rojo`)
   const amarilloFragmentTimes = await bluebird.map(_.range(countToSend), async r => {
-      return send(amarillo.signer, amarillo, rojo.signer, `${FRAGMENT_AMOUNT}`, SYMBOL)
+      return send(runConfig.amarillo.signer, runConfig.amarillo, runConfig.rojo.signer, `${FRAGMENT_AMOUNT}`, runConfig.symbol)
     },
   { concurrency: 1 })
 
@@ -374,6 +305,10 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
     amarilloFragmentErrors,
   }, null, 2)}`)
 
+  const allTimes = _.concat(rojoFragmentTimes, largeAmarilloTimes, mediumAmarilloTimes, smallAmarilloTimes)
+  const allResponsesTotalTime = _.reduce(_.filter(allTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
+  const allResponsesAverageTime = allResponsesTotalTime / 1.0 / allTimes.length
+
   const rojoFragmentTotalTime = _.reduce(_.filter(rojoFragmentTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const rojoFragmentAverageTime = rojoFragmentTotalTime / 1.0 / rojoFragmentTimes.length
 
@@ -389,32 +324,35 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
   const amarilloFragmentTotalTime = _.reduce(_.filter(amarilloFragmentTimes, r => r.res), (sum, res) => sum + res.miliseconds, 0)
   const amarilloFragmentAverageTime = amarilloFragmentTotalTime / 1.0 / amarilloFragmentTimes.length
 
-  console.log(`PERFORMANCE:\n${JSON.stringify({
-    rojoFragmentTotalTime,
-    rojoFragmentAverageTime,
-    largeAmarilloTotalTime,
-    largeAmarilloAverageTime,
-    mediumAmarilloTotalTime,
-    mediumAmarilloAverageTime,
-    smallAmarilloTotalTime,
-    smallAmarilloAverageTime,
-    amarilloFragmentTotalTime,
-    amarilloFragmentAverageTime,
+  console.log(`PERFORMANCE (ms):\n${JSON.stringify({
+    allResponsesAverageTime: `${allResponsesAverageTime}ms`,
+    rojoFragmentTotalTime: `${rojoFragmentTotalTime}ms`,
+    rojoFragmentAverageTime: `${rojoFragmentAverageTime}ms`,
+    largeAmarilloTotalTime: `${largeAmarilloTotalTime}ms`,
+    largeAmarilloAverageTime: `${largeAmarilloAverageTime}ms`,
+    mediumAmarilloTotalTime: `${mediumAmarilloTotalTime}ms`,
+    mediumAmarilloAverageTime: `${mediumAmarilloAverageTime}ms`,
+    smallAmarilloTotalTime: `${smallAmarilloTotalTime}ms`,
+    smallAmarilloAverageTime: `${smallAmarilloAverageTime}ms`,
+    amarilloFragmentTotalTime: `${amarilloFragmentTotalTime}ms`,
+    amarilloFragmentAverageTime: `${amarilloFragmentAverageTime}ms`,
   }, null, 2)}`)
 
-  console.log('\n\n=====================DETAILED TIME BREAKDOWN=====================\n')
+  if (runConfig.showAllRawResults) {
+    console.log('\n\n=====================DETAILED TIME BREAKDOWN=====================\n')
   
-  console.log('\nROJO FRAGMENT TIMES:\n')
-  console.log(JSON.stringify(_.map(rojoFragmentTimes, l => l.miliseconds)))
-  
-  console.log('\nAMARILLO FRAGMENT TIMES:\n')
-  console.log(JSON.stringify(_.map(amarilloFragmentTimes, l => l.miliseconds)))
+    console.log('\nROJO FRAGMENT TIMES (ms)\n')
+    console.log(JSON.stringify(_.map(rojoFragmentTimes, l => l.miliseconds)))
+    
+    console.log('\nAMARILLO FRAGMENT TIMES:\n')
+    console.log(JSON.stringify(_.map(amarilloFragmentTimes, l => l.miliseconds)))
 
-  console.log('\nAMARILLO MID TRANSACTION TIMES:\n')
-  console.log(JSON.stringify(_.map(_.concat(largeAmarilloTimes, mediumAmarilloTimes, smallAmarilloTimes), l => l.miliseconds)))
+    console.log('\nAMARILLO MID TRANSACTION TIMES:\n')
+    console.log(JSON.stringify(_.map(_.concat(largeAmarilloTimes, mediumAmarilloTimes, smallAmarilloTimes), l => l.miliseconds)))
+  }
 }
 
-// scenario2({ simSize: SIM_SIZE.SMALL })
-//   .then(() => console.log('DONE'))
+scenario2({ simSize: SIM_SIZE.SMALL })
+  .then(() => console.log('DONE'))
 
-scenario1(2, 5).then(() => console.log('DONE'))
+// scenario1(2, 5).then(() => console.log('DONE'))
