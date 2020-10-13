@@ -11,6 +11,8 @@ const WALLET_URIS = {
   LOCAL: 'http://localhost:8082/transaction',
   GCP_FUTURE: 'http://34.77.237.255:8081/transaction',
   GCP_LEGACY: 'http://34.78.22.71:8081/transaction',
+  GCP_TST: 'http://web-wallet-dot-core-tst.appspot.com/transaction',
+  GCP_STG: 'https://web-wallet-dot-core-stg.appspot.com/transaction',
 }
 
 const TIN = 'wd7VoAD3PzRdRRuKUbSUzL2gFgSD4Z8HRC'
@@ -35,15 +37,17 @@ interface Entity {
 //   signer: "wbmMFVkmphCeb5QEXdTqfXp52EatuE1Quu"
 // }
 
+const TIN_SYMBOL_STG = "wMxKCAzsQBiUURDU3xD3xuSbVo1S9jmf3d"
 // const SYMBOL = issuer.signer
-const SYMBOL = 'wd7VoAD3PzRdRRuKUbSUzL2gFgSD4Z8HRC' // TIN
+const SYMBOL = TIN_SYMBOL_STG
+// const SYMBOL = 'wd7VoAD3PzRdRRuKUbSUzL2gFgSD4Z8HRC' // TIN
 
-// const rojo: Entity = {
-//   scheme: "ecdsa-ed25519",
-//   public: "0423f8b192884eb5d71802fb50f21068fa43c9733893a6d4bb420e2827647cb728178dfe197957c127ee6851250611d9205ed9a5435034f0169580e899e7b32282",
-//   secret: "03ead306f42e95861bed33effe37f2bc2720d5f8da3ba286b358d78cfff245af",
-//   signer: "wdEHHkz5FLAvb2UfmCSrw1w9Dn87reYuSP"
-// }
+const rojo: Entity = {
+  scheme: "ecdsa-ed25519",
+  public: "0423f8b192884eb5d71802fb50f21068fa43c9733893a6d4bb420e2827647cb728178dfe197957c127ee6851250611d9205ed9a5435034f0169580e899e7b32282",
+  secret: "03ead306f42e95861bed33effe37f2bc2720d5f8da3ba286b358d78cfff245af",
+  signer: "wdEHHkz5FLAvb2UfmCSrw1w9Dn87reYuSP"
+}
 
 const amarillo: Entity = {
   scheme: "ecdsa-ed25519",
@@ -52,21 +56,30 @@ const amarillo: Entity = {
   signer: "wc3Kgynkv96bK6Ukef3TrhP4CvZPkxQ1un"
 }
 
-const movii: Entity = {
-  scheme: "ecdsa-ed25519",
-  public: "04147f1c7d498559279b322ff5023b206fb7c138208f8b957810740124fdf4cadd5ae9f8fa1729f286c8922ba096e987e52c72ebfdf4382b3101e133225f3afa54",
-  secret: "9a4811f1b5af9a810d2a89e172c24ff8a4bbb130d841d565c727d725f6d3a7",
-  signer: "wVCmBRk2jz5fBi47kpzGZezoovzfudv6L2"
+const stgTestBank1: Entity = {
+  "public": "0406684e8cb6236b220c43cff448751a2b0b2f917182ccc5e62687565b84bbb59426b0905274b27cbb0f4abfd07747d028eda63a6a2867d8bbcbd64106273a5fe6",
+  "scheme": "ecdsa-ed25519",
+  "secret": "0e38ddcac886fc8982168e78eff215b08ff38e5d40fbb13597d8a6977aff36ab",
+  "signer": "whmFECWeYG45LxhFMNUg7y6qFSnXkhThoj",
 }
-const rojo = movii
-const issuer = movii
+
+const issuer = stgTestBank1
+
+// const movii: Entity = {
+//   scheme: "ecdsa-ed25519",
+//   public: "04147f1c7d498559279b322ff5023b206fb7c138208f8b957810740124fdf4cadd5ae9f8fa1729f286c8922ba096e987e52c72ebfdf4382b3101e133225f3afa54",
+//   secret: "9a4811f1b5af9a810d2a89e172c24ff8a4bbb130d841d565c727d725f6d3a7",
+//   signer: "wVCmBRk2jz5fBi47kpzGZezoovzfudv6L2"
+// }
+// const rojo = movii
+// const issuer = movii
 
 // issuer.scheme = movii.scheme
 // issuer.public = movii.public
 // issuer.secret = movii.secret
 // issuer.signer = movii.signer
 
-async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = true) 
+async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: string, amount: string, symbol: string, expiry: string = defaultDate, logging: boolean = false) 
 : Promise<{ res, miliseconds: number, times: object }> {
   /* Prepare IOU claims */
   let claims = {
@@ -100,10 +113,12 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
     const hrstart = process.hrtime()
     const res = await request({
       method: 'POST',
-      uri: WALLET_URIS.LOCAL,
+      uri: `${WALLET_URIS.GCP_STG}`,
       body,
       headers: {
         'content-type': 'application/json',
+        'accept': 'application/json',
+        'connection': 'close',
       },
       json: true,
     })
@@ -204,11 +219,11 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   // "storeTransactionRecordTime": 212.119642,
   // "querySpendTransactionOutputsTime": 349.067399
 
-  const getUnspentOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.getUnspentOutputsTime, 0)
-  const getUnspentOutputsTimeAvg = getUnspentOutputsTimeTotal / 1.0 / dataFlat.length
+  // const getUnspentOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.getUnspentOutputsTime, 0)
+  // const getUnspentOutputsTimeAvg = getUnspentOutputsTimeTotal / 1.0 / dataFlat.length
 
-  const querySpendTransactionOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.querySpendTransactionOutputsTime, 0)
-  const querySpendTransactionOutputsTimeAvg = querySpendTransactionOutputsTimeTotal / 1.0 / dataFlat.length
+  // const querySpendTransactionOutputsTimeTotal = _.reduce(_.filter(dataFlat, r => r.res), (sum, res) => sum + res.times.querySpendTransactionOutputsTime, 0)
+  // const querySpendTransactionOutputsTimeAvg = querySpendTransactionOutputsTimeTotal / 1.0 / dataFlat.length
 
   const erroredCount = _.reduce(dataFlat, (sum, dataPoint) => sum + dataPoint.res ? 0 : 1, 0)
   const averageResponse = _.reduce(dataFlat, (sum, dataPoint) => dataPoint.miliseconds ? sum + dataPoint.miliseconds : sum, 0) / (paralellizationAmount * iterations - erroredCount)
@@ -235,8 +250,8 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
 
   console.log(`Average response: ${averageResponse}`)
 
-  console.log(`Unspent outputs calculation: ${getUnspentOutputsTimeAvg}`)
-  console.log(`Spend outputs calculation  : ${querySpendTransactionOutputsTimeAvg}`)
+  // console.log(`Unspent outputs calculation: ${getUnspentOutputsTimeAvg}`)
+  // console.log(`Spend outputs calculation  : ${querySpendTransactionOutputsTimeAvg}`)
   
   console.log(`\n========\nAverage responses by pair:\n${JSON.stringify(averageResponseByPair, null, 2)}`)
   console.log(`\n========\nAverage responses by iteration:\n${JSON.stringify(averageResponseByIteration, null, 2)}`)
@@ -263,7 +278,7 @@ async function scenario1(paralellizationAmount: number, iterations: number) {
   console.log(`Errors by iteration: ${errorsByIteration}`)
 
 
-  console.log(`\n========\nRaw data:\n${JSON.stringify(_.map(data, d => _.map(d, e => e.miliseconds)), null, 2)}`)
+  // console.log(`\n========\nRaw data:\n${JSON.stringify(_.map(data, d => _.map(d, e => e.miliseconds)), null, 2)}`)
 }
 
 async function scenario2({ simSize = SIM_SIZE.BIG }) {
@@ -305,7 +320,7 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
 
   // rojo first gets one big output it can spend
   console.log(`Issuing ${2 * TOTAL_CIRCULATION} to rojo`)
-  // await issue(`${2 * TOTAL_CIRCULATION}`, rojo.signer)
+  await issue(`${2 * TOTAL_CIRCULATION}`, rojo.signer)
 
   // rojo sends entire circulation in many small transactions to amarillo
   console.log(`Rojo sending total ${FRAGMENT_AMOUNT * FRAGMENT_COUNT} to Amarillo`)
@@ -399,7 +414,7 @@ async function scenario2({ simSize = SIM_SIZE.BIG }) {
   console.log(JSON.stringify(_.map(_.concat(largeAmarilloTimes, mediumAmarilloTimes, smallAmarilloTimes), l => l.miliseconds)))
 }
 
-scenario2({ simSize: SIM_SIZE.SMALL })
-  .then(() => console.log('DONE'))
+// scenario2({ simSize: SIM_SIZE.SMALL })
+//   .then(() => console.log('DONE'))
 
-// scenario1(100, 10).then(() => console.log('DONE'))
+scenario1(2, 5).then(() => console.log('DONE'))
