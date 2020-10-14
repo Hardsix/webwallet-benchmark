@@ -12,15 +12,15 @@ const SIM_SIZE = {
 }
 
 const runConfig = {
-  issuer: entitiesData.stg.testBank1,
+  issuer: entitiesData.prod.moviiPrd,
   // symbol: entitiesData.stg.testBank1.signer, 
-  symbol: entitiesData.stg.TIN_SYMBOL_STG,
+  symbol: entitiesData.prod.TIN_SYMBOL_PRD,
   rojo: entitiesData.local.rojo,
   amarillo: entitiesData.local.amarillo,
   logLevel: 1,
   showAllRawResults: false,
   simSize: SIM_SIZE.SMALL,
-  walletUri: WALLET_URIS.GCP_STG,
+  walletUri: WALLET_URIS.GCP_FUTURE,
   apiReturnsTimes: false, // true if wallet api returns `times` breakdown in transaction response
 }
 
@@ -95,11 +95,12 @@ async function send(sourceAddress: string, sourceKeys: Entity, targetAddress: st
       times: res.times,
     }
   } catch (err) {
-    if (logLevel <= 2) {
-      console.log('ERROR OCCURRED')
-    } else {
-      console.log(`Error occurred: ${JSON.stringify(err, null, 2)}`)
-    }
+    console.log(`Error occurred: ${JSON.stringify(err, null, 2)}`)
+    // if (logLevel <= 2) {
+    //   console.log('ERROR OCCURRED')
+    // } else {
+    //   console.log(`Error occurred: ${JSON.stringify(err, null, 2)}`)
+    // }
 
     return {
       res: null,
@@ -467,13 +468,13 @@ function runScenario2FullSuite() {
   })
 }
 
-// runScenario1FullSuite()
-runScenario2FullSuite()
+runScenario1FullSuite()
+// runScenario2FullSuite()
 
 // runConfig.logLevel = 3
 // scenario2({ simSize: SIM_SIZE.BIG })
 //   .then(() => console.log('DONE'))
 
-// scenario1(2, 5).then(() => console.log('DONE'))
+// scenario1(1, 1).then(() => console.log('DONE'))
 
 

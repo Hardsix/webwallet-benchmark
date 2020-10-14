@@ -1,0 +1,25 @@
+Comparison
+
+Legacy webwallet (staging environment on GCP / Aura):
+5 pairs, 10 iterations   - Average response (ms): 1447.3939038199999ms
+5 pairs, 50 iterations   - Average response (ms): 1246.8352551919997ms
+20 pairs, 10 iterations  - Average response (ms): 1613.0587662349997ms
+20 pairs, 50 iterations  - Average response (ms): 1563.54661946146ms
+50 pairs, 10 iterations  - Average response (ms): 2157.0161187028093ms
+50 pairs, 50 iterations  - Average response (ms): 2137.7915192132828ms
+100 pairs, 10 iterations - Average response (ms): 2897.932565758998ms
+100 pairs, 50 iterations - Average response (ms): 2854.2903217989187ms
+200 pairs, 10 iterations - Average response (ms): 4899.3237257095025ms
+500 pairs, 15 iterations - Average response (ms): 11892.24093292958ms
+
+Performance improved webwallet (temporary environment on GCP / Aura):
+5 pairs, 10 iterations   - Average response (ms): 270.39202457999994ms
+5 pairs, 50 iterations   - Average response (ms): 215.91205390399995ms
+20 pairs, 10 iterations  - Average response (ms): 445.54591183000014ms
+20 pairs, 50 iterations  - Average response (ms): 410.9390469627771ms
+50 pairs, 10 iterations  - Average response (ms): 993.5842653320001ms
+50 pairs, 50 iterations  - Average response (ms): 793.3309350372153ms
+100 pairs, 10 iterations - Average response (ms): 1428.1783305430015ms
+100 pairs, 50 iterations - Average response (ms): 1625.6996317872993ms
+200 pairs, 10 iterations - Average response (ms): 4657.395016157498ms
+500 pairs, 15 iterations - Average response (ms): 9926.595790309975ms
